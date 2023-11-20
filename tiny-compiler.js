@@ -3,7 +3,7 @@ const fs = require("fs");
 const filename = process.argv[2].trim();
 const content = fs.readFileSync(filename, {encoding: "utf8"}).toString();
 
-console.log(JSON.stringify(parser(tokenizer(content))));
+console.log(compiler(content));
 
 function tokenizer(input) {
   let current = 0;
@@ -143,7 +143,7 @@ function parser(tokens) {
 
 function transverser(ast, visitor) {
   function transverseArray(array, parent) {
-    array.foreach(child => transverseNode(child, parent));
+    array.forEach(child => {transverseNode(child, parent)});
   }
 
   function transverseNode(node, parent) {
@@ -199,7 +199,7 @@ function transformer(ast) {
           type: "CallExpression",
           calle: {
             type: "Identifier",
-            name: node.name
+            name: node.value
           },
           arguments: []
         };
@@ -221,5 +221,30 @@ function transformer(ast) {
   return newAst;
 }
 
+function codeGenerator(node) {
+  switch (node.type) {
+    case "Program":
+      return node.body.map(codeGenerator).join("\n");
+    case "ExpressionStatement":
+      return (codeGenerator(node.expression) + ";");
+    case "CallExpression":
+      return (codeGenerator(node.calle) + "(" + node.arguments.map(codeGenerator).join(",") + ")");
+    case "Identifier":
+      return node.name;
+    case "NumberLiteral":
+      return node.value;
+    case "StringLiteral":
+      return ('"' + node.value + '"');
+    default:
+      throw new TypeError(node.type);
+  }
+}
 
+function compiler(input) {
+  let tokens = tokenizer(input);
+  let ast = parser(tokens);
+  let newAst = transformer(ast);
+  let output = codeGenerator(newAst);
 
+  return output;
+}
